@@ -1,0 +1,11 @@
+{
+  "name": "scraper-borsa",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node server.js" },
+  "dependencies": {
+    "express": "^4.19.2",
+    "axios": "^1.7.0",
+    "cheerio": "^1.0.0-rc.12"
+  }
+}
