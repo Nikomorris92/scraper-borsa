@@ -1,6 +1,6 @@
 import express from "express";
 import axios from "axios";
-import { load } from "cheerio";     // <<-- FIX
+import { load } from "cheerio";
 
 const app = express();
 
@@ -31,9 +31,14 @@ const pickLink = ($, el, base, arr) => {
   return base;
 };
 
+// root e health per test
+app.get("/", (_req, res) => res.send("ok"));
 app.get("/health", (_req, res) => res.send("ok"));
 
-// GET /scrape?url=<LISTING_URL>&max=500
+/**
+ * GET /scrape?url=<LISTING_URL>&max=500
+ * Ritorna: { count, items: [{ title, price, link, zone }] }
+ */
 app.get("/scrape", async (req, res) => {
   const url = req.query.url;
   const max = Number(req.query.max || 0);
@@ -44,7 +49,7 @@ app.get("/scrape", async (req, res) => {
       headers: { "User-Agent": "Mozilla/5.0" }
     });
 
-    const $ = load(html);            // <<-- FIX
+    const $ = load(html);
 
     let $items = $(SEL.item.join(","));
     if ($items.length === 0) $items = $("a[href]"); // fallback
@@ -52,3 +57,23 @@ app.get("/scrape", async (req, res) => {
     const items = [];
     $items.each((_, el) => {
       const title = pick($, el, SEL.title);
+      const zone = pick($, el, SEL.zone);
+      const priceText = pick($, el, SEL.price);
+      const price = Number((priceText || "").replace(/\./g, "").match(/\d+/g)?.join("") || 0);
+      const link = pickLink($, el, url, SEL.link);
+
+      if (title && link) {
+        if (!max || (price && price <= max)) items.push({ title, price, link, zone });
+      }
+    });
+
+    res.json({ count: items.length, items });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+// ascolta sulla porta di Railway
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log("Listening on", PORT));
