@@ -1,6 +1,6 @@
 import express from "express";
 import axios from "axios";
-import cheerio from "cheerio";
+import { load } from "cheerio";   // <-- FIX
 
 const app = express();
 
@@ -33,7 +33,6 @@ const pickLink = ($, el, base, arr) => {
 
 app.get("/health", (_req, res) => res.send("ok"));
 
-// GET /scrape?url=<LISTING_URL>&max=500
 app.get("/scrape", async (req, res) => {
   const url = req.query.url;
   const max = Number(req.query.max || 0);
@@ -43,7 +42,8 @@ app.get("/scrape", async (req, res) => {
     const { data: html } = await axios.get(url, {
       headers: { "User-Agent": "Mozilla/5.0" }
     });
-    const $ = cheerio.load(html);
+
+    const $ = load(html);   // <-- FIX
 
     let $items = $(SEL.item.join(","));
     if ($items.length === 0) $items = $("a[href]"); // fallback
@@ -67,3 +67,4 @@ app.get("/scrape", async (req, res) => {
 });
 
 app.listen(process.env.PORT || 3000);
+
