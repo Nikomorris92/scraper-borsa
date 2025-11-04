@@ -1,6 +1,7 @@
 import express from "express";
 import axios from "axios";
 import { load } from "cheerio";
+import https from "node:https"; // per sbloccare il TLS
 
 const app = express();
 
@@ -31,26 +32,31 @@ const pickLink = ($, el, base, arr) => {
   return base;
 };
 
-// root e health per test
 app.get("/", (_req, res) => res.send("ok"));
 app.get("/health", (_req, res) => res.send("ok"));
 
-/**
- * GET /scrape?url=<LISTING_URL>&max=500
- * Ritorna: { count, items: [{ title, price, link, zone }] }
- */
 app.get("/scrape", async (req, res) => {
   const url = req.query.url;
   const max = Number(req.query.max || 0);
   if (!url) return res.status(400).json({ error: "Missing ?url=<LISTING_URL>" });
 
   try {
+    // Workaround TLS per “unable to verify the first certificate”
+    const agent = new https.Agent({ rejectUnauthorized: false });
+
     const { data: html } = await axios.get(url, {
-      headers: { "User-Agent": "Mozilla/5.0" }
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "es-ES,es;q=0.9,it;q=0.8,en;q=0.7",
+        "Referer": url
+      },
+      httpsAgent: agent,
+      maxRedirects: 5,
+      timeout: 20000
     });
 
     const $ = load(html);
-
     let $items = $(SEL.item.join(","));
     if ($items.length === 0) $items = $("a[href]"); // fallback
 
@@ -74,6 +80,5 @@ app.get("/scrape", async (req, res) => {
   }
 });
 
-// ascolta sulla porta di Railway
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("Listening on", PORT));
